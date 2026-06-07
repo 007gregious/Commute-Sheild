@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package commute.transport.v1;
+
+import "google/protobuf/struct.proto";
+
+option go_package = "github.com/commuteshield/backend/internal/gen/transport/v1;transportv1";
+
+service TelemetryService {
+  rpc SubmitTelemetry(google.protobuf.Struct) returns (google.protobuf.Struct);
+}
