@@ -53,3 +53,12 @@ once every 30 seconds per vehicle when `speed_kmh` is above 40 km/h.
 `statement_cache_mode=describe` for transaction-pool compatibility. OpenTelemetry
 tracing is initialized at startup; set `OTEL_EXPORTER_OTLP_ENDPOINT` to export to
 an OTLP collector, or leave it unset for stdout spans.
+
+## Identity Onboarding and NDPA Erasure
+
+The backend also exposes two HTTP JSON endpoints next to the gRPC-Web handler:
+
+- `POST /identity/onboard` accepts `user_id`, a platform-scoped `vnin`, and a `selfie_base64` payload. The service forwards the vNIN and selfie to the Smile ID verification boundary, extracts only verified first name, last name, and date of birth, validates the names, computes `sha256(first_name + last_name + dob)`, and stores only the resulting 64-character lowercase hex digest in `commute.users.identity_hash`.
+- `POST` or `DELETE /identity/erase` accepts `user_id` and requires `x-erasure-signature`, a lowercase HMAC-SHA256 signature of the user id using `ERASURE_SIGNING_SECRET`. A verified `commute.users` row is locked before the owning profile is deleted transactionally to support an explicit NDPA-style data-subject erasure request.
+
+Configure Smile ID and erasure signing with `SMILE_ID_BASE_URL`, `SMILE_ID_PARTNER_ID`, `SMILE_ID_API_KEY`, `SMILE_ID_CALLBACK_URL`, `SMILE_ID_JOB_TYPE`, and `ERASURE_SIGNING_SECRET`.
