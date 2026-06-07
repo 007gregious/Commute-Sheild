@@ -1,0 +1,52 @@
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./supabase/migrations:/docker-entrypoint-initdb.d:ro
+
+  pgbouncer:
+    image: bitnami/pgbouncer:1.23.1
+    depends_on:
+      - postgres
+    environment:
+      POSTGRESQL_HOST: postgres
+      POSTGRESQL_PORT: 5432
+      POSTGRESQL_USERNAME: postgres
+      POSTGRESQL_PASSWORD: postgres
+      POSTGRESQL_DATABASE: postgres
+      PGBOUNCER_DATABASE: postgres
+      PGBOUNCER_PORT: 6432
+      PGBOUNCER_POOL_MODE: transaction
+      PGBOUNCER_MAX_CLIENT_CONN: 100
+      PGBOUNCER_DEFAULT_POOL_SIZE: 20
+    ports:
+      - "6432:6432"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  backend:
+    build: ./backend
+    depends_on:
+      - pgbouncer
+      - redis
+    environment:
+      ADDR: :8080
+      DATABASE_URL: postgres://postgres:postgres@pgbouncer:6432/postgres?sslmode=disable&pool_max_conns=20&statement_cache_mode=describe
+      REDIS_URL: redis://redis:6379/0
+      PGPOOL_MIN_CONNS: 2
+      PGPOOL_MAX_CONNS: 20
+    ports:
+      - "8080:8080"
+
+volumes:
+  postgres-data:

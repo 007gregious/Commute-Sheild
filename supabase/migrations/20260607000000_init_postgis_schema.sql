@@ -202,3 +202,33 @@ as $$
           )
     order by r.departure_time asc, pickup_distance_meters asc, dropoff_distance_meters asc;
 $$;
+
+create table if not exists commute.api_idempotency_keys (
+    key text not null,
+    rpc_method text not null,
+    response_payload jsonb not null,
+    created_at timestamptz not null default now(),
+    primary key (key, rpc_method),
+    constraint api_idempotency_keys_key_not_blank check (length(btrim(key)) > 0),
+    constraint api_idempotency_keys_rpc_method_not_blank check (length(btrim(rpc_method)) > 0)
+);
+
+create table if not exists commute.vehicle_metric_samples (
+    id uuid primary key default gen_random_uuid(),
+    vehicle_id text not null,
+    speed_kmh double precision not null,
+    observed_at timestamptz not null,
+    location geometry(Point, 4326) not null,
+    created_at timestamptz not null default now(),
+    constraint vehicle_metric_samples_vehicle_id_not_blank check (length(btrim(vehicle_id)) > 0),
+    constraint vehicle_metric_samples_speed_non_negative check (speed_kmh >= 0),
+    constraint vehicle_metric_samples_location_point check (geometrytype(location) = 'POINT'),
+    constraint vehicle_metric_samples_location_srid check (st_srid(location) = 4326)
+);
+
+create index if not exists idx_api_idempotency_keys_created_at
+    on commute.api_idempotency_keys (created_at);
+create index if not exists idx_vehicle_metric_samples_vehicle_observed
+    on commute.vehicle_metric_samples (vehicle_id, observed_at desc);
+create index if not exists idx_vehicle_metric_samples_location_gist
+    on commute.vehicle_metric_samples using gist (location);
