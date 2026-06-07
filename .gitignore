@@ -1,0 +1,21 @@
+# IDE & System files
+.idea/
+.vscode/
+*.log
+.DS_Store
+
+# Backend dependencies & environment secrets
+backend/bin/
+backend/.env
+backend/vendor/
+
+# Web dependencies & builds
+web/node_modules/
+web/.next/
+web/out/
+web/build/
+web/.env.local
+
+# Local Database Infrastructure data
+.env
+pgdata/
