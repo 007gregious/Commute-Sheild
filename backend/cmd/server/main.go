@@ -53,9 +53,10 @@ type tracedDB struct {
 }
 
 type server struct {
-	db     *tracedDB
-	redis  *redis.Client
-	tracer trace.Tracer
+	db       *tracedDB
+	redis    *redis.Client
+	tracer   trace.Tracer
+	identity *identityRouter
 }
 
 type telemetryInput struct {
@@ -89,7 +90,14 @@ func main() {
 	defer redisClient.Close()
 
 	db := &tracedDB{pool: pool, tracer: otel.Tracer("commuteshield.db")}
-	svc := &server{db: db, redis: redisClient, tracer: otel.Tracer("commuteshield.telemetry")}
+	identityCfg := loadIdentityConfig()
+	identityRouter := &identityRouter{
+		db:     db,
+		smile:  newSmileIDRESTClient(identityCfg),
+		cfg:    identityCfg,
+		tracer: otel.Tracer("commuteshield.identity"),
+	}
+	svc := &server{db: db, redis: redisClient, tracer: otel.Tracer("commuteshield.telemetry"), identity: identityRouter}
 
 	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(idempotencyUnaryInterceptor(db)))
 	registerTelemetryService(grpcServer, svc)
@@ -105,12 +113,20 @@ func main() {
 			wrapped.ServeHTTP(w, r)
 			return
 		}
-		if r.URL.Path == "/healthz" {
+		switch r.URL.Path {
+		case "/healthz":
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte("ok"))
 			return
+		case "/identity/onboard":
+			svc.identity.ServeOnboard(w, r)
+			return
+		case "/identity/erase":
+			svc.identity.ServeErase(w, r)
+			return
+		default:
+			http.NotFound(w, r)
 		}
-		http.NotFound(w, r)
 	})
 
 	log.Printf("CommuteShield backend listening on %s with native gRPC and gRPC-Web", cfg.Addr)

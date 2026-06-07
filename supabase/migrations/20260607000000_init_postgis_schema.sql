@@ -232,3 +232,16 @@ create index if not exists idx_vehicle_metric_samples_vehicle_observed
     on commute.vehicle_metric_samples (vehicle_id, observed_at desc);
 create index if not exists idx_vehicle_metric_samples_location_gist
     on commute.vehicle_metric_samples using gist (location);
+
+
+create table if not exists commute.users (
+    id uuid primary key references commute.profiles(id) on delete cascade,
+    identity_hash char(64) not null,
+    identity_verified_at timestamptz not null default now(),
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now(),
+    constraint users_identity_hash_sha256_hex check (identity_hash ~ '^[0-9a-f]{64}$')
+);
+
+create index if not exists idx_users_identity_hash
+    on commute.users (identity_hash);
