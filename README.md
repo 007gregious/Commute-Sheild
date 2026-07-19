@@ -173,6 +173,7 @@ The backend can run with defaults for local Docker infrastructure, but productio
 | `REDIS_URL` | `redis://localhost:6379/0` | Redis connection URL. |
 | `PGPOOL_MIN_CONNS` | `2` | Minimum pgx pool connections. |
 | `PGPOOL_MAX_CONNS` | `20` | Maximum pgx pool connections. |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:3000,http://127.0.0.1:3000` | Comma-separated browser origins allowed to call gRPC-Web endpoints. Set this explicitly in deployed environments. |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | empty | OTLP collector endpoint. If empty, spans are written to stdout. |
 | `SMILE_ID_BASE_URL` | `https://api.smileidentity.com` | Smile ID API base URL. |
 | `SMILE_ID_PARTNER_ID` | empty | Smile ID partner identifier. |
