@@ -1,7 +1,7 @@
 import { defaultCache } from "@serwist/next/worker";
-import { CacheFirst, NetworkFirst, Serwist, StaleWhileRevalidate } from "serwist";
+import { CacheFirst, NetworkFirst, Serwist, StaleWhileRevalidate, type PrecacheEntry } from "serwist";
 
-declare const self: ServiceWorkerGlobalScope & { __SW_MANIFEST: Array<unknown> };
+declare const self: ServiceWorkerGlobalScope & { __SW_MANIFEST: Array<string | PrecacheEntry> };
 
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
