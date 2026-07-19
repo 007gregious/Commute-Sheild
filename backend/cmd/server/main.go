@@ -39,10 +39,11 @@ const (
 )
 
 type appConfig struct {
-	Addr         string
-	DatabaseURL  string
-	RedisURL     string
-	OtelEndpoint string
+	Addr               string
+	DatabaseURL        string
+	RedisURL           string
+	OtelEndpoint       string
+	AllowedCORSOrigins []string
 }
 
 type txKey struct{}
@@ -104,7 +105,7 @@ func main() {
 
 	wrapped := grpcweb.WrapServer(
 		grpcServer,
-		grpcweb.WithOriginFunc(func(origin string) bool { return true }),
+		grpcweb.WithOriginFunc(allowConfiguredOrigin(cfg.AllowedCORSOrigins)),
 		grpcweb.WithCorsForRegisteredEndpointsOnly(false),
 	)
 
@@ -137,10 +138,11 @@ func main() {
 
 func loadConfig() appConfig {
 	return appConfig{
-		Addr:         env("ADDR", ":8080"),
-		DatabaseURL:  env("DATABASE_URL", "postgres://postgres:postgres@localhost:6432/postgres?sslmode=disable&pool_max_conns=20&statement_cache_mode=describe"),
-		RedisURL:     env("REDIS_URL", "redis://localhost:6379/0"),
-		OtelEndpoint: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
+		Addr:               env("ADDR", ":8080"),
+		DatabaseURL:        env("DATABASE_URL", "postgres://postgres:postgres@localhost:6432/postgres?sslmode=disable&pool_max_conns=20&statement_cache_mode=describe"),
+		RedisURL:           env("REDIS_URL", "redis://localhost:6379/0"),
+		OtelEndpoint:       os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
+		AllowedCORSOrigins: parseCSVEnv("CORS_ALLOWED_ORIGINS", []string{"http://localhost:3000", "http://127.0.0.1:3000"}),
 	}
 }
 
@@ -182,6 +184,40 @@ func parseIntEnv(key string, fallback int) int {
 		return fallback
 	}
 	return parsed
+}
+
+func parseCSVEnv(key string, fallback []string) []string {
+	value := os.Getenv(key)
+	if strings.TrimSpace(value) == "" {
+		return fallback
+	}
+	parts := strings.Split(value, ",")
+	parsed := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if trimmed := strings.TrimSpace(part); trimmed != "" {
+			parsed = append(parsed, trimmed)
+		}
+	}
+	if len(parsed) == 0 {
+		return fallback
+	}
+	return parsed
+}
+
+func allowConfiguredOrigin(allowedOrigins []string) func(string) bool {
+	allowed := make(map[string]struct{}, len(allowedOrigins))
+	for _, origin := range allowedOrigins {
+		if trimmed := strings.TrimSpace(origin); trimmed != "" {
+			allowed[trimmed] = struct{}{}
+		}
+	}
+	return func(origin string) bool {
+		if origin == "" {
+			return true
+		}
+		_, ok := allowed[origin]
+		return ok
+	}
 }
 
 func connectRedis(redisURL string) (*redis.Client, error) {
