@@ -2,7 +2,13 @@
 
 import { SpanStatusCode } from "@opentelemetry/api";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getPendingRidesAndBookings, markSyncedAtomically, updateBackoffAttempt } from "@/db/commuteDb";
+import {
+  getPendingRidesAndBookings,
+  markSyncFailed,
+  markSyncedAtomically,
+  markSyncingAtomically,
+  updateBackoffAttempt
+} from "@/db/commuteDb";
 import { commuteSyncClient, type GrpcWebSyncClient } from "@/grpc/commuteSyncClient";
 import { offlineSyncTracer } from "@/telemetry/tracing";
 
@@ -24,6 +30,7 @@ export function useResilientOfflineSync(client: GrpcWebSyncClient = commuteSyncC
   const [pendingCount, setPendingCount] = useState(0);
   const [lastError, setLastError] = useState<Error | null>(null);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const inFlight = useRef(false);
 
   const clearTimers = useCallback(() => {
     timers.current.forEach(clearTimeout);
@@ -31,6 +38,13 @@ export function useResilientOfflineSync(client: GrpcWebSyncClient = commuteSyncC
   }, []);
 
   const synchronize = useCallback(async () => {
+    if (inFlight.current) {
+      console.info("[offline-sync] sync already in progress; skipping overlapping request");
+      return;
+    }
+
+    inFlight.current = true;
+    clearTimers();
     const span = offlineSyncTracer.startSpan("offline.sync.flushPendingRecords");
     setIsSyncing(true);
 
@@ -50,6 +64,12 @@ export function useResilientOfflineSync(client: GrpcWebSyncClient = commuteSyncC
         });
 
         try {
+          const claimed = await markSyncingAtomically(record.id);
+          if (!claimed) {
+            console.info("[offline-sync] record was claimed by another sync pass; skipping", { id: record.id });
+            continue;
+          }
+
           console.info("[offline-sync] delivering record via gRPC-Web", { id: record.id, type: record.entityType });
           await client.deliverOfflineRecord(record);
           await markSyncedAtomically(record.id);
@@ -72,6 +92,7 @@ export function useResilientOfflineSync(client: GrpcWebSyncClient = commuteSyncC
             });
             timers.current.push(setTimeout(() => void synchronize(), delay));
           } else {
+            await markSyncFailed(record.id);
             console.error("[offline-sync] non-retryable gRPC-Web delivery failure", deliveryError);
           }
         } finally {
@@ -90,9 +111,10 @@ export function useResilientOfflineSync(client: GrpcWebSyncClient = commuteSyncC
       console.error("[offline-sync] failed to query or process IndexedDB queue", syncError);
     } finally {
       span.end();
+      inFlight.current = false;
       setIsSyncing(false);
     }
-  }, [client]);
+  }, [clearTimers, client]);
 
   useEffect(() => {
     void synchronize();
