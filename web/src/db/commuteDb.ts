@@ -26,13 +26,26 @@ export class CommuteShieldDb extends Dexie {
   }
 }
 
-export const commuteDb = new CommuteShieldDb();
+let commuteDbInstance: CommuteShieldDb | null = null;
+
+function assertBrowserStorage() {
+  if (typeof window === "undefined" || !("indexedDB" in window)) {
+    throw new Error("Offline storage is only available in browsers with IndexedDB support.");
+  }
+}
+
+export function getCommuteDb() {
+  assertBrowserStorage();
+  commuteDbInstance ??= new CommuteShieldDb();
+  return commuteDbInstance;
+}
 
 function staleSyncingCutoff() {
   return new Date(Date.now() - SYNCING_STALE_AFTER_MS).toISOString();
 }
 
 export async function getPendingRidesAndBookings() {
+  const commuteDb = getCommuteDb();
   const staleCutoff = staleSyncingCutoff();
 
   return commuteDb.transaction("rw", commuteDb.ridesAndBookings, async () => {
@@ -47,6 +60,8 @@ export async function getPendingRidesAndBookings() {
 }
 
 export async function markSyncingAtomically(id: string) {
+  const commuteDb = getCommuteDb();
+
   return commuteDb.transaction("rw", commuteDb.ridesAndBookings, async () => {
     const record = await commuteDb.ridesAndBookings.get(id);
     if (!record || record.sync_status !== "pending") {
@@ -62,6 +77,8 @@ export async function markSyncingAtomically(id: string) {
 }
 
 export async function markSyncedAtomically(id: string) {
+  const commuteDb = getCommuteDb();
+
   await commuteDb.transaction("rw", commuteDb.ridesAndBookings, async () => {
     await commuteDb.ridesAndBookings.update(id, {
       sync_status: "synced",
@@ -72,7 +89,7 @@ export async function markSyncedAtomically(id: string) {
 }
 
 export async function updateBackoffAttempt(id: string, backoffAttempt: number) {
-  await commuteDb.ridesAndBookings.update(id, {
+  await getCommuteDb().ridesAndBookings.update(id, {
     sync_status: "pending",
     backoffAttempt,
     updatedAt: new Date().toISOString()
@@ -80,7 +97,7 @@ export async function updateBackoffAttempt(id: string, backoffAttempt: number) {
 }
 
 export async function markSyncFailed(id: string) {
-  await commuteDb.ridesAndBookings.update(id, {
+  await getCommuteDb().ridesAndBookings.update(id, {
     sync_status: "failed",
     updatedAt: new Date().toISOString()
   });

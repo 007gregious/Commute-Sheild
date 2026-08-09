@@ -51,7 +51,7 @@ Go backend (:8080)
           └─ Redis geospatial cache (:6379)
 ```
 
-The local Docker Compose environment starts PostGIS, PgBouncer, Redis, and the backend service. The web application is normally run separately with the Next.js development server.
+The local Docker Compose environment starts PostGIS, PgBouncer, Redis, and the backend service. The web application is normally run separately with the Next.js development server, and production builds export to static browser files that can be hosted by any static web server.
 
 ## Repository Layout
 
@@ -225,6 +225,7 @@ The web app is a Next.js PWA shell focused on resilient offline execution.
 - `web/src/components/OfflineSyncStatus.tsx` displays pending count, sync state, errors, and a manual sync button.
 - `web/src/app/sw.ts` defines Serwist precaching and runtime caching strategies for documents, assets, fonts, and images.
 - `web/src/components/ServiceWorkerRegistrar.tsx` registers `/sw.js` only in production builds.
+- `web/next.config.js` exports the app as static browser assets in `web/out`, so production hosting does not require a Node.js server.
 
 ### Web Commands
 
@@ -234,8 +235,9 @@ npm install
 npm run dev        # start local development server
 npm run typecheck  # run TypeScript type checking
 npm run lint       # run Next.js linting
-npm run build      # build production app and service worker
-npm run start      # serve the production build
+npm run build      # export the production browser app and service worker to ./out
+npm run start      # serve ./out locally with Python
+# or deploy ./out to any static host
 ```
 
 ## Database Schema
