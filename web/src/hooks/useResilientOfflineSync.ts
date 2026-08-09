@@ -22,7 +22,12 @@ function nextRetryDelay(attempt: number) {
 }
 
 function isConnectivityDrop(error: unknown) {
-  return !navigator.onLine || error instanceof TypeError || (error instanceof DOMException && error.name === "AbortError");
+  const browserIsOffline = typeof navigator !== "undefined" && !navigator.onLine;
+  return browserIsOffline || error instanceof TypeError || (error instanceof DOMException && error.name === "AbortError");
+}
+
+function browserCanSync() {
+  return typeof window !== "undefined" && "indexedDB" in window && "fetch" in window;
 }
 
 export function useResilientOfflineSync(client: GrpcWebSyncClient = commuteSyncClient) {
@@ -38,6 +43,13 @@ export function useResilientOfflineSync(client: GrpcWebSyncClient = commuteSyncC
   }, []);
 
   const synchronize = useCallback(async () => {
+    if (!browserCanSync()) {
+      const unsupportedError = new Error("This browser does not support the storage or network APIs required for offline sync.");
+      setLastError(unsupportedError);
+      console.warn("[offline-sync] browser APIs unavailable; skipping sync", unsupportedError);
+      return;
+    }
+
     if (inFlight.current) {
       console.info("[offline-sync] sync already in progress; skipping overlapping request");
       return;
