@@ -12,12 +12,40 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./supabase/migrations/20260607000000_init_postgis_schema.sql:/docker-entrypoint-initdb.d/001-init-postgis-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shield_user -d commuteshield_prod"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
     container_name: commuteshield_cache
     ports:
       - "6379:6379"
-      
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+    container_name: commuteshield_backend
+    environment:
+      ADDR: ":8080"
+      DATABASE_URL: "postgres://shield_user:shield_password@postgres:5432/commuteshield_prod?sslmode=disable"
+      REDIS_URL: "redis://redis:6379/0"
+      CORS_ALLOWED_ORIGINS: "http://localhost:3000,http://127.0.0.1:3000"
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
 volumes:
   pgdata:

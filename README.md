@@ -47,11 +47,11 @@ Go backend (:8080)
   ├─ /identity/erase JSON endpoint
   └─ commute.transport.v1.TelemetryService gRPC/gRPC-Web endpoint
           │
-          ├─ PostgreSQL/PostGIS through PgBouncer (:6432)
+          ├─ PostgreSQL/PostGIS (:5432)
           └─ Redis geospatial cache (:6379)
 ```
 
-The local Docker Compose environment starts PostGIS, PgBouncer, Redis, and the backend service. The web application is normally run separately with the Next.js development server, and production builds export to static browser files that can be hosted by any static web server.
+The local Docker Compose environment starts PostGIS, Redis, and the backend service. The web application is normally run separately with the Next.js development server, and production builds export to static browser files that can be hosted by any static web server.
 
 ## Repository Layout
 
@@ -74,7 +74,7 @@ The local Docker Compose environment starts PostGIS, PgBouncer, Redis, and the b
 │   ├── src/telemetry/               # OpenTelemetry browser tracer handle
 │   ├── public/manifest.json         # PWA manifest
 │   └── package.json                 # Web scripts and dependencies
-├── docker-compose.yml               # Local PostGIS, PgBouncer, Redis, and backend stack
+├── docker-compose.yml               # Local PostGIS, Redis, and backend stack
 └── README.md
 ```
 
@@ -101,7 +101,6 @@ The local Docker Compose environment starts PostGIS, PgBouncer, Redis, and the b
 ### Data Infrastructure
 
 - PostgreSQL 16 with PostGIS
-- PgBouncer in transaction pooling mode
 - Redis 7
 - Supabase-compatible SQL migration files
 
@@ -134,7 +133,6 @@ docker-compose up -d
 This starts:
 
 - PostGIS on `localhost:5432`
-- PgBouncer on `localhost:6432`
 - Redis on `localhost:6379`
 - Backend on `localhost:8080`
 
@@ -169,7 +167,7 @@ The backend can run with defaults for local Docker infrastructure, but productio
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `ADDR` | `:8080` | Backend HTTP listen address. |
-| `DATABASE_URL` | PgBouncer localhost URL | PostgreSQL connection string. Prefer PgBouncer port `6432` with `statement_cache_mode=describe`. |
+| `DATABASE_URL` | Local PostgreSQL URL | PostgreSQL connection string. Use your managed PostgreSQL/PostGIS endpoint in production. |
 | `REDIS_URL` | `redis://localhost:6379/0` | Redis connection URL. |
 | `PGPOOL_MIN_CONNS` | `2` | Minimum pgx pool connections. |
 | `PGPOOL_MAX_CONNS` | `20` | Maximum pgx pool connections. |
@@ -204,7 +202,7 @@ The Go service exposes one HTTP listener, defaulting to `:8080`, and multiplexes
 
 ### Running the Backend Without Docker Compose
 
-Start PostGIS/PgBouncer/Redis yourself, then run:
+Start PostGIS and Redis yourself, then run:
 
 ```bash
 cd backend

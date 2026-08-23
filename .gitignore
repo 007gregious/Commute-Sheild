@@ -19,3 +19,5 @@ web/.env.local
 # Local Database Infrastructure data
 .env
 pgdata/
+web/public/sw.js
+web/tsconfig.tsbuildinfo
